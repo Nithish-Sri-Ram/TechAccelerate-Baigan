@@ -4,6 +4,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:baigan/services/sms_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,10 +25,12 @@ class _HomeScreenState extends State<HomeScreen> {
   String _lastMessage = "No messages received";
 
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
+  final SMSService _smsService = SMSService(); // ✅ Added SMS Service
 
   @override
   void initState() {
     super.initState();
+  
     _connectToWebSocket();
     _startListeningToAccelerometer();
   }
@@ -101,12 +106,46 @@ class _HomeScreenState extends State<HomeScreen> {
       "accelerometer": {"x": _xValue, "y": _yValue, "z": _zValue}
     };
 
-    try {
-      _channel!.sink.add(jsonEncode(data));
-    } catch (e) {
-      print("Error sending data: $e");
+    _channel!.sink.add(jsonEncode(data));
+
+    // If the motion crosses a certain threshold, send a push notification
+    if (_xValue.abs() > 10 || _yValue.abs() > 10 || _zValue.abs() > 10) {
+      _sendPushNotification();
     }
   }
+
+  Future<void> _sendPushNotification() async {
+    String? fcmToken = await FirebaseMessaging.instance.getToken();
+
+    if (fcmToken == null) {
+      print("FCM Token not available");
+      return;
+    }
+
+    const String serverKey = "YOUR_FIREBASE_SERVER_KEY"; // Replace with your actual key
+
+    final notificationData = {
+      "to": fcmToken,
+      "notification": {
+        "title": "Motion Alert!",
+        "body": "High motion detected!",
+      },
+    };
+
+    final response = await http.post(
+      Uri.parse('https://fcm.googleapis.com/fcm/send'),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "key=$serverKey",
+      },
+      body: jsonEncode(notificationData),
+    );
+   
+
+    print("Notification Response: ${response.body}");
+  }
+
+  
 
   @override
   void dispose() {
@@ -132,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 const SizedBox(height: 20),
 
-                // Connection Status
+                // WebSocket Status Card
                 Card(
                   elevation: 4,
                   child: Padding(
@@ -180,7 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 const SizedBox(height: 16),
 
-                // Real Accelerometer Data
+                // Accelerometer Data Card
                 Card(
                   elevation: 4,
                   child: Padding(
@@ -207,6 +246,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                   ),
+                ),
+
+                const SizedBox(height: 16),
+
+                
+                const SizedBox(height: 16),
+
+                // ✅ Emergency SMS Button
+                Center(
+                  child: Center(
+  child: ElevatedButton(
+    onPressed: () {
+      List<String> emergencyContacts = ["+919082532164", "+919322741282"]; // Dummy numbers
+      String alertMessage = "🚨 Emergency Alert! Please check on me immediately.";
+
+      SMSService.sendEmergencySMS(alertMessage, emergencyContacts);
+    },
+    child: const Text("Send Emergency SMS"),
+  ),
+),
+
+
                 ),
               ],
             ),

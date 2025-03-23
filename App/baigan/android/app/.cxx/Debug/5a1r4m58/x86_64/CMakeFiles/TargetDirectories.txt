@@ -1,0 +1,2 @@
+C:/Projects/TechX_AI/TechAccelerate-Baigan/App/baigan/android/app/.cxx/Debug/5a1r4m58/x86_64/CMakeFiles/edit_cache.dir
+C:/Projects/TechX_AI/TechAccelerate-Baigan/App/baigan/android/app/.cxx/Debug/5a1r4m58/x86_64/CMakeFiles/rebuild_cache.dir
